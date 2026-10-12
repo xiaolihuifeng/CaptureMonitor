@@ -23,6 +23,7 @@ REASON_SAVED = "saved"
 REASON_DUPLICATE = "duplicate"
 REASON_PENDING = "pending"
 REASON_NO_INTERFACE = "no_interface"
+REASON_MANUAL = "manual"
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp"}
 
@@ -77,6 +78,19 @@ class MonitorEngine:
         if self.on_captured is not None:
             self.on_captured(path, dict(entry))
         return CaptureResult(timestamp, True, path, score, REASON_SAVED)
+
+    def capture_now(self, frame_bgr: np.ndarray) -> CaptureResult:
+        """Force-save the current frame regardless of match or dedup state."""
+        score = self.detector.score(frame_bgr)
+        timestamp = time.time()
+        path = self._save_frame(frame_bgr, score)
+        entry = {"path": path, "time": timestamp, "score": score, "name": Path(path).name}
+        self._history.append(entry)
+        self._last_hash = self.comparer.hash(frame_bgr)
+        self._last_signature = self.comparer.signature(frame_bgr)
+        if self.on_captured is not None:
+            self.on_captured(path, dict(entry))
+        return CaptureResult(timestamp, True, path, score, REASON_MANUAL)
 
     def _save_frame(self, frame_bgr: np.ndarray, score: float) -> str:
         directory = self.config.resolved_save_dir()

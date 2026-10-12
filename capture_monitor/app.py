@@ -13,6 +13,7 @@ from capture_monitor.capture import ScreenCapturer
 from capture_monitor.config import Config
 from capture_monitor.detector import InterfaceDetector
 from capture_monitor.engine import MonitorEngine
+from capture_monitor.hotkey import GlobalHotkey
 from capture_monitor.list_window import CaptureListWindow
 from capture_monitor.tray import TrayController
 
@@ -65,10 +66,17 @@ def main(argv=None) -> int:
         engine.config = new_config
         engine.detector = new_detector
         tray.apply_config(new_config)
+        hotkey.set_spec(new_config.hotkey)
+        hotkey.set_enabled(new_config.hotkey_enabled)
 
     window.on_config_changed = reload_config
     tray.start()
     window.refresh()
+    hotkey = GlobalHotkey(config.hotkey)
+    if config.hotkey_enabled:
+        hotkey.register()
+    hotkey.activated.connect(tray.manual_capture)
+    app.aboutToQuit.connect(hotkey.unregister)
     if not QSystemTrayIcon.isSystemTrayAvailable():
         print("warning: system tray is not available", file=sys.stderr)
     return app.exec_()

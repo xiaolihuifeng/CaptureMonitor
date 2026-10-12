@@ -14,6 +14,7 @@ CaptureMonitor 是一个 Windows 托盘应用程序：它周期性截取屏幕�
 - dHash 感知哈希去重：仅当感知哈希相近且帧间灰度差 <= `dedup_max_diff` 时判为重复（避免漏采局部变化的新图像），相邻帧判定为重复时跳过保存。
 - 支持限定匹配区域（`match_region`）与多显示器（`monitor_index`）。
 - 采图保存为 `cap_<YYYYmmdd_HHMMSS_mmm>.<png|jpg>`（时间戳精确到毫秒）。
+- 全局快捷键采图（默认 `F9`，可在「采图列表」→「设置」修改；按下立即把当前屏幕存入 `Image/`）。
 - 托盘菜单提供「采图列表」与「退出」；参数设置（保存目录 / 阈值 / 间隔等）可在「采图列表」窗口中修改。
 
 ## 目录结构
@@ -63,6 +64,8 @@ python run.py
 | `monitor_index` | 显示器索引（多显示器） | `0` |
 | `image_format` | 保存格式：`png` 或 `jpg` | `png` |
 | `auto_start_monitor` | 启动后是否自动开始监控 | `true` |
+| `hotkey` | 全局采图快捷键(如 F9 / Ctrl+Alt+S) | `F9` |
+| `hotkey_enabled` | 是否启用全局快捷键采图 | `true` |
 
 ## 托盘菜单
 

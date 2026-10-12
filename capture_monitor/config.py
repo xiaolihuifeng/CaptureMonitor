@@ -26,6 +26,8 @@ class Config:
     monitor_index: int = 0
     image_format: str = "png"              # "png" or "jpg"
     auto_start_monitor: bool = True
+    hotkey: str = "F9"
+    hotkey_enabled: bool = True
 
     def resolved_save_dir(self) -> Path:
         if self.save_dir:

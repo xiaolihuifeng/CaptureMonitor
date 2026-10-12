@@ -194,3 +194,20 @@ def test_scan_existing_seeds_dedup_after_restart(tmp_path):
     assert first.reason == REASON_PENDING
     second = fresh.tick(demo)
     assert second.reason == REASON_DUPLICATE
+
+
+def test_capture_now_force_saves(tmp_path):
+    _, engine = _build_engine(tmp_path)
+    rng = np.random.default_rng(1)
+    noise = rng.integers(0, 256, size=(1080, 1920, 3), dtype=np.uint8)
+    result = engine.capture_now(noise)
+    assert result.saved is True and result.reason == "manual"
+    assert result.path is not None and Path(result.path).exists()
+
+
+def test_capture_now_updates_dedup_baseline(tmp_path):
+    _, engine = _build_engine(tmp_path)
+    demo = _demo_bgr()
+    engine.capture_now(demo)
+    engine.tick(demo)
+    assert engine.tick(demo).reason == REASON_DUPLICATE

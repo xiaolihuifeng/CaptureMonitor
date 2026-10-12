@@ -35,7 +35,9 @@ class TrayController(QObject):
         quit_action = menu.addAction("退出")
         quit_action.triggered.connect(self._quit)
         self._tray.setContextMenu(menu)
-        self._tray.setToolTip("CaptureMonitor 采图监控")
+        self._tray.setToolTip(
+            f"CaptureMonitor 采图监控 (快捷键 {getattr(self.config, 'hotkey', 'F9')})"
+        )
         self._tray.show()
         self._timer.setInterval(max(1, int(self.config.capture_interval_ms)))
         if self.config.auto_start_monitor:
@@ -50,6 +52,24 @@ class TrayController(QObject):
             self.list_window.add_capture(
                 result.path, {"time": result.timestamp, "score": result.score}
             )
+
+    def manual_capture(self) -> None:
+        frame = self.capturer.grab()
+        if frame is None:
+            return
+        result = self.engine.capture_now(frame)
+        if result.saved:
+            if self.list_window is not None:
+                self.list_window.add_capture(
+                    result.path, {"time": result.timestamp, "score": result.score}
+                )
+            if self._tray is not None:
+                self._tray.showMessage(
+                    "CaptureMonitor",
+                    f"已采图：{Path(result.path).name}",
+                    QSystemTrayIcon.Information,
+                    2000,
+                )
 
     def _open_list(self) -> None:
         if self.list_window is None:

@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QDesktopServices, QPixmap
 from PyQt5.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -98,6 +99,12 @@ class SettingsDialog(QDialog):
         self.format_combo.setCurrentIndex(format_index if format_index >= 0 else 0)
         form.addRow("图像格式", self.format_combo)
 
+        self.hotkey_enabled_check = QCheckBox("启用全局快捷键采图")
+        self.hotkey_enabled_check.setChecked(config.hotkey_enabled)
+        form.addRow("快捷键", self.hotkey_enabled_check)
+        self.hotkey_edit = QLineEdit(config.hotkey)
+        form.addRow("按键(如 F9 / Ctrl+Alt+S)", self.hotkey_edit)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -124,6 +131,8 @@ class SettingsDialog(QDialog):
         new.dedup_max_diff = float(self.diff_spin.value())
         new.monitor_index = int(self.monitor_spin.value())
         new.image_format = str(self.format_combo.currentText())
+        new.hotkey = self.hotkey_edit.text().strip() or "F9"
+        new.hotkey_enabled = bool(self.hotkey_enabled_check.isChecked())
         return new
 
 

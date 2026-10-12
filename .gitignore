@@ -8,3 +8,7 @@ Image/
 config.json
 *.log
 .pytest_cache/
+
+# 构建/下载产物
+*.zip
+CaptureMonitor-windows.zip

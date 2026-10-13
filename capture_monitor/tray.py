@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from PyQt5.QtCore import QObject, QTimer
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+
+from capture_monitor import __version__
+
+logger = logging.getLogger("capture_monitor.tray")
 
 
 class TrayController(QObject):
@@ -36,7 +41,8 @@ class TrayController(QObject):
         quit_action.triggered.connect(self._quit)
         self._tray.setContextMenu(menu)
         self._tray.setToolTip(
-            f"CaptureMonitor 采图监控 (快捷键 {getattr(self.config, 'hotkey', 'F9')})"
+            f"CaptureMonitor 采图监控 v{__version__} "
+            f"(快捷键 {getattr(self.config, 'hotkey', 'F9')})"
         )
         self._tray.show()
         self._timer.setInterval(max(1, int(self.config.capture_interval_ms)))
@@ -44,21 +50,44 @@ class TrayController(QObject):
             self._timer.start()
 
     def _tick(self) -> None:
-        frame = self.capturer.grab()
-        if frame is None:
-            return
-        result = self.engine.tick(frame)
-        if result.saved and self.list_window is not None:
-            self.list_window.add_capture(
-                result.path, {"time": result.timestamp, "score": result.score}
-            )
+        try:
+            frame = self.capturer.grab()
+            if frame is None:
+                return
+            result = self.engine.tick(frame)
+            if result.saved:
+                logger.info("自动采图已保存: %s score=%.3f", result.path, result.score)
+                if self.list_window is not None:
+                    self.list_window.add_capture(
+                        result.path, {"time": result.timestamp, "score": result.score}
+                    )
+            else:
+                logger.debug(
+                    "自动采图未保存: reason=%s score=%.3f", result.reason, result.score
+                )
+        except Exception:
+            logger.exception("自动采图异常")
+
+    def notify(self, title: str, msg: str) -> None:
+        """Show a tray balloon if the tray icon is available."""
+        if self._tray is not None:
+            self._tray.showMessage(title, msg, QSystemTrayIcon.Information, 3000)
 
     def manual_capture(self) -> None:
+        logger.info("手动采图: 触发")
         frame = self.capturer.grab()
         if frame is None:
+            logger.error("手动采图失败: 抓屏返回空")
+            self.notify("CaptureMonitor", "采图失败，详见日志")
             return
-        result = self.engine.capture_now(frame)
+        try:
+            result = self.engine.capture_now(frame)
+        except Exception:
+            logger.exception("手动采图失败")
+            self.notify("CaptureMonitor", "采图失败，详见日志")
+            return
         if result.saved:
+            logger.info("手动采图已保存: %s", result.path)
             if self.list_window is not None:
                 self.list_window.add_capture(
                     result.path, {"time": result.timestamp, "score": result.score}

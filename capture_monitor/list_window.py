@@ -29,6 +29,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from capture_monitor import __version__, paths
 from capture_monitor.config import Config
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp"}
@@ -137,12 +138,14 @@ class SettingsDialog(QDialog):
 
 
 class CaptureListWindow(QWidget):
-    def __init__(self, config: Config, on_config_changed=None, parent=None) -> None:
+    def __init__(self, config: Config, on_config_changed=None,
+                 on_manual_capture=None, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("采图列表")
+        self.setWindowTitle(f"采图列表 - v{__version__}")
         self.resize(760, 480)
         self.config = config
         self.on_config_changed = on_config_changed
+        self.on_manual_capture = on_manual_capture
 
         self._table = QTableWidget(0, 4)
         self._table.setHorizontalHeaderLabels(["缩略图", "文件名", "时间", "匹配分"])
@@ -160,12 +163,18 @@ class CaptureListWindow(QWidget):
         clear_button.clicked.connect(self._clear)
         settings_button = QPushButton("设置")
         settings_button.clicked.connect(self._settings)
+        manual_button = QPushButton("立即采图")
+        manual_button.clicked.connect(self._manual_capture)
+        log_button = QPushButton("打开日志")
+        log_button.clicked.connect(self._open_log)
 
         toolbar = QHBoxLayout()
         toolbar.addWidget(open_button)
         toolbar.addWidget(refresh_button)
         toolbar.addWidget(clear_button)
         toolbar.addWidget(settings_button)
+        toolbar.addWidget(manual_button)
+        toolbar.addWidget(log_button)
         toolbar.addStretch(1)
 
         layout = QVBoxLayout(self)
@@ -222,6 +231,16 @@ class CaptureListWindow(QWidget):
 
     def _open_dir(self) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.config.resolved_save_dir())))
+
+    def _manual_capture(self) -> None:
+        if self.on_manual_capture is not None:
+            self.on_manual_capture()
+
+    def _open_log(self) -> None:
+        target = paths.log_path()
+        if not target.exists():
+            target = paths.program_dir()
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
 
     def _clear(self) -> None:
         answer = QMessageBox.question(

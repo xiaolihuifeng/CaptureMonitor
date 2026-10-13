@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 
-from PyQt5.QtCore import QSharedMemory
+from PyQt5.QtCore import QSharedMemory, Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
@@ -110,7 +110,9 @@ def main(argv=None) -> int:
             tray.notify("快捷键注册失败", "F9 可能被其他程序占用，请在设置里更换")
     else:
         logger.info("全局快捷键已禁用")
-    hotkey.activated.connect(tray.manual_capture)
+    # Queued: the low-level hook callback must return immediately (Windows
+    # removes slow hooks), so the capture runs later on the Qt event loop.
+    hotkey.activated.connect(tray.manual_capture, Qt.QueuedConnection)
     app.aboutToQuit.connect(hotkey.unregister)
     if not QSystemTrayIcon.isSystemTrayAvailable():
         logger.warning("系统托盘不可用")

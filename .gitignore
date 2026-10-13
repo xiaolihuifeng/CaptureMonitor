@@ -9,6 +9,7 @@ config.json
 *.log
 .pytest_cache/
 
-# 构建/下载产物
+# 构建/下载产物(勿入库)
 *.zip
+*.exe
 CaptureMonitor-windows.zip

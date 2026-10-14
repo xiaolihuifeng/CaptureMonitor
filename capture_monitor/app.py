@@ -44,10 +44,12 @@ def main(argv=None) -> int:
     app.setApplicationName("CaptureMonitor")
     app.setQuitOnLastWindowClosed(False)
     app.setWindowIcon(_icon())
+    logger.info("运行环境: python=%s platform=%s", sys.version.split()[0], sys.platform)
 
     shared_memory = QSharedMemory("CaptureMonitorSingleInstance")
     if not shared_memory.create(1):
-        QMessageBox.warning(None, "CaptureMonitor", "CaptureMonitor 已在运行")
+        logger.warning("检测到已有实例在运行，本次启动退出；请先在任务管理器结束所有 CaptureMonitor.exe 再重试")
+        QMessageBox.warning(None, "CaptureMonitor", "CaptureMonitor 已在运行。\n请先在任务管理器结束所有 CaptureMonitor.exe，再重新启动。")
         return 1
 
     config = Config.load()
@@ -76,6 +78,7 @@ def main(argv=None) -> int:
     engine.scan_existing()
     capturer = ScreenCapturer(config.monitor_index)
     hotkey = GlobalHotkey(config.hotkey)
+    hotkey.debug_keys = config.debug_keys
     tray = TrayController(app, config, engine, capturer, None, icon_path=None)
 
     def reload_config(new_config: Config) -> None:
@@ -87,6 +90,7 @@ def main(argv=None) -> int:
         engine.detector = new_detector
         tray.apply_config(new_config)
         hotkey.set_spec(new_config.hotkey)
+        hotkey.debug_keys = new_config.debug_keys
         if new_config.hotkey_enabled:
             if hotkey.set_enabled(True):
                 logger.info("全局热键已更新: %s", new_config.hotkey)
@@ -113,6 +117,15 @@ def main(argv=None) -> int:
     # Queued: the low-level hook callback must return immediately (Windows
     # removes slow hooks), so the capture runs later on the Qt event loop.
     hotkey.activated.connect(tray.manual_capture, Qt.QueuedConnection)
+    if not config.hotkey_enabled:
+        status = "快捷键已禁用"
+    elif hotkey.enabled:
+        status = f"快捷键 {config.hotkey} 已启用"
+    else:
+        status = f"快捷键 {config.hotkey} 启用失败(见日志)"
+    window.set_hotkey_status(f"版本 v{__version__} · {status}")
+    if QSystemTrayIcon.isSystemTrayAvailable():
+        tray.notify("CaptureMonitor", f"已启动 v{__version__}；{status}")
     app.aboutToQuit.connect(hotkey.unregister)
     if not QSystemTrayIcon.isSystemTrayAvailable():
         logger.warning("系统托盘不可用")

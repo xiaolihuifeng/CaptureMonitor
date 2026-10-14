@@ -28,6 +28,7 @@ class Config:
     auto_start_monitor: bool = True
     hotkey: str = "F9"
     hotkey_enabled: bool = True
+    debug_keys: bool = False                # 记录按键调试信息(排查快捷键)
 
     def resolved_save_dir(self) -> Path:
         if self.save_dir:

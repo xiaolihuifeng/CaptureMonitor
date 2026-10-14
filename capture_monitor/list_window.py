@@ -106,6 +106,10 @@ class SettingsDialog(QDialog):
         self.hotkey_edit = QLineEdit(config.hotkey)
         form.addRow("按键(如 F9 / Ctrl+Alt+S)", self.hotkey_edit)
 
+        self.debug_keys_check = QCheckBox("记录按键调试信息(排查快捷键)")
+        self.debug_keys_check.setChecked(config.debug_keys)
+        form.addRow("调试", self.debug_keys_check)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -134,6 +138,7 @@ class SettingsDialog(QDialog):
         new.image_format = str(self.format_combo.currentText())
         new.hotkey = self.hotkey_edit.text().strip() or "F9"
         new.hotkey_enabled = bool(self.hotkey_enabled_check.isChecked())
+        new.debug_keys = bool(self.debug_keys_check.isChecked())
         return new
 
 
@@ -179,7 +184,12 @@ class CaptureListWindow(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addLayout(toolbar)
+        self._status_label = QLabel(f"版本 v{__version__} · 快捷键 {config.hotkey}")
+        layout.addWidget(self._status_label)   # insert between toolbar and table
         layout.addWidget(self._table)
+
+    def set_hotkey_status(self, text: str) -> None:
+        self._status_label.setText(text)
 
     def add_capture(self, path, meta: dict | None = None) -> None:
         meta = meta if meta is not None else {}

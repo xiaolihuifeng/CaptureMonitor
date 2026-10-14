@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PyQt5.QtCore import QObject, QTimer
-from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import QObject, QTimer, QUrl
+from PyQt5.QtGui import QDesktopServices, QIcon
 from PyQt5.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from capture_monitor import __version__
+from capture_monitor import __version__, paths
 
 logger = logging.getLogger("capture_monitor.tray")
 
@@ -35,10 +35,10 @@ class TrayController(QObject):
             icon = QApplication.windowIcon()
         self._tray = QSystemTrayIcon(icon, self)
         menu = QMenu()
-        open_action = menu.addAction("采图列表")
-        open_action.triggered.connect(self._open_list)
-        quit_action = menu.addAction("退出")
-        quit_action.triggered.connect(self._quit)
+        open_action = menu.addAction("采图列表"); open_action.triggered.connect(self._open_list)
+        capture_action = menu.addAction("立即采图"); capture_action.triggered.connect(self.manual_capture)
+        log_action = menu.addAction("打开日志"); log_action.triggered.connect(self.open_log)
+        quit_action = menu.addAction("退出"); quit_action.triggered.connect(self._quit)
         self._tray.setContextMenu(menu)
         self._tray.setToolTip(
             f"CaptureMonitor 采图监控 v{__version__} "
@@ -99,6 +99,12 @@ class TrayController(QObject):
                     QSystemTrayIcon.Information,
                     2000,
                 )
+
+    def open_log(self) -> None:
+        target = paths.log_path()
+        if not target.exists():
+            target = paths.program_dir()
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
 
     def _open_list(self) -> None:
         if self.list_window is None:

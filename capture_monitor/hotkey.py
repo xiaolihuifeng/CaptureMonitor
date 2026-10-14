@@ -31,37 +31,49 @@ _VK_SHIFT = 0x10
 _VK_LWIN = 0x5B
 _VK_RWIN = 0x5C
 
+_HOOK_READY = False
+_INIT_ERROR: Exception | None = None
+
 if _IS_WINDOWS:
-    from ctypes import wintypes
+    try:
+        from ctypes import wintypes
 
-    class KBDLLHOOKSTRUCT(ctypes.Structure):
-        _fields_ = [
-            ("vkCode", wintypes.DWORD),
-            ("scanCode", wintypes.DWORD),
-            ("flags", wintypes.DWORD),
-            ("time", wintypes.DWORD),
-            ("dwExtraInfo", ctypes.c_size_t),
+        class KBDLLHOOKSTRUCT(ctypes.Structure):
+            _fields_ = [
+                ("vkCode", wintypes.DWORD),
+                ("scanCode", wintypes.DWORD),
+                ("flags", wintypes.DWORD),
+                ("time", wintypes.DWORD),
+                ("dwExtraInfo", ctypes.c_size_t),
+            ]
+
+        _LRESULT = ctypes.c_ssize_t
+        _HOOKPROC = ctypes.WINFUNCTYPE(_LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+
+        _user32 = ctypes.WinDLL("user32", use_last_error=True)
+        _user32.SetWindowsHookExW.restype = wintypes.HHOOK
+        _user32.SetWindowsHookExW.argtypes = [
+            ctypes.c_int, _HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD
         ]
-
-    _LRESULT = ctypes.c_ssize_t
-    _HOOKPROC = ctypes.WINFUNCTYPE(_LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
-
-    _user32 = ctypes.WinDLL("user32", use_last_error=True)
-    _user32.SetWindowsHookExW.restype = wintypes.HHOOK
-    _user32.SetWindowsHookExW.argtypes = [
-        ctypes.c_int, _HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD
-    ]
-    _user32.UnhookWindowsHookEx.restype = wintypes.BOOL
-    _user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
-    _user32.CallNextHookEx.restype = _LRESULT
-    _user32.CallNextHookEx.argtypes = [
-        wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
-    ]
-    _user32.GetAsyncKeyState.restype = ctypes.c_uint16
-    _user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+        _user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+        _user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+        _user32.CallNextHookEx.restype = _LRESULT
+        _user32.CallNextHookEx.argtypes = [
+            wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
+        ]
+        _user32.GetAsyncKeyState.restype = ctypes.c_uint16
+        _user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
+        _HOOK_READY = True
+        _INIT_ERROR = None
+    except Exception as exc:
+        _HOOK_READY = False
+        _INIT_ERROR = exc
+        logger.exception("初始化键盘钩子 Win32 符号失败: %r", exc)
 else:  # pragma: no cover - non-Windows import path
     _LRESULT = ctypes.c_ssize_t
     _HOOKPROC = None
+    _HOOK_READY = False
+    _INIT_ERROR = RuntimeError("非 Windows 平台")
 
 
 class GlobalHotkey(QObject):
@@ -77,6 +89,7 @@ class GlobalHotkey(QObject):
         self._proc = None
         self._vk = 0
         self._mods = 0
+        self.debug_keys = False
 
     @property
     def enabled(self) -> bool:
@@ -90,12 +103,12 @@ class GlobalHotkey(QObject):
         """Install the low-level keyboard hook; no-op failure off Windows."""
         if self._registered:
             return True
+        if not _HOOK_READY:
+            logger.warning("全局热键不可用: %s", _INIT_ERROR)
+            return False
         parsed = parse_hotkey(self._spec)
         if parsed is None:
             logger.warning("无法启用全局热键: spec=%r 解析失败", self._spec)
-            return False
-        if not _IS_WINDOWS:
-            logger.warning("无法启用全局热键: spec=%r (仅支持 Windows)", self._spec)
             return False
         self._mods, self._vk = parsed
         try:
@@ -158,6 +171,11 @@ class GlobalHotkey(QObject):
     def _on_key(self, n_code, w_param, l_param):
         if n_code == 0 and w_param in (WM_KEYDOWN, WM_SYSKEYDOWN):
             kb = ctypes.cast(l_param, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+            if self.debug_keys:
+                logger.info(
+                    "按键调试: vkCode=0x%02X (%d) mods=%d spec=%s",
+                    int(kb.vkCode), int(kb.vkCode), self._modifiers_down(), self._spec,
+                )
             if kb.vkCode == self._vk and self._modifiers_down() == self._mods:
                 # Emit only (queued by the caller) — keep the hook fast.
                 self.activated.emit()
